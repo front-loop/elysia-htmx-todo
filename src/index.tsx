@@ -1,17 +1,9 @@
 /// <reference types="@kitajs/html/htmx.d.ts" />
 import { html } from '@elysiajs/html'
 import { Elysia, t } from 'elysia'
-
-interface Todo {
-  id: number
-  content: string
-  completed: boolean
-}
-
-const db: Todo[] = [
-  { id: 1, content: 'Buy milk', completed: false },
-  { id: 2, content: 'Buy eggs', completed: false },
-]
+import { Todo, todos } from './db/schema'
+import { db } from './db'
+import { eq } from 'drizzle-orm'
 
 const Layout = ({ children }: Html.PropsWithChildren) => {
   return (
@@ -23,6 +15,7 @@ const Layout = ({ children }: Html.PropsWithChildren) => {
           <meta name="viewport" content="width=device-width, initial-scale=1.0" />
           <title>Todo</title>
           <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+          <script src="https://unpkg.com/hyperscript.org@0.9.12"></script>
           <script src="https://cdn.tailwindcss.com"></script>
         </head>
         <body class="h-dvh flex w-full items-center justify-center">{children}</body>
@@ -33,7 +26,7 @@ const Layout = ({ children }: Html.PropsWithChildren) => {
 
 const TodoForm = () => {
   return (
-    <form class="flex items-center" hx-post="/todos" hx-swap="beforebegin">
+    <form class="flex items-center" hx-post="/todos" hx-swap="beforebegin" _="on submit target.reset()">
       <input type="text" name="content" class="border border-black px-2 py-1 focus:outline-none" />
       <button type="submit" class="border border-l-0 border-black px-2 py-1">
         Add
@@ -72,19 +65,18 @@ const app = new Elysia()
       <div class="font-serif" hx-get="/todos" hx-trigger="load" hx-swap="innerHTML" />
     </Layout>
   ))
-  .get('/todos', () => <TodoList todos={db} />)
+  .get('/todos', async () => {
+    const data = await db.select().from(todos).all()
+    return <TodoList todos={data} />
+  })
   .post(
     'todos',
-    ({ body }) => {
-      if (body.content) {
-        const todo = {
-          id: db.length + 1,
-          content: body.content,
-          completed: false,
-        }
-        db.push(todo)
-        return <TodoItem {...todo} />
+    async ({ body }) => {
+      if (body.content.length === 0) {
+        throw new Error('Content cannot be empty')
       }
+      const newTodo = await db.insert(todos).values(body).returning().get()
+      return <TodoItem {...newTodo} />
     },
     {
       body: t.Object({
@@ -94,12 +86,10 @@ const app = new Elysia()
   )
   .post(
     '/todos/toggle/:id',
-    ({ params }) => {
-      const todo = db.find((todo) => todo.id === params.id)
-      if (todo) {
-        todo.completed = !todo.completed
-        return <TodoItem {...todo} />
-      }
+    async ({ params }) => {
+      const oldTodo = await db.select().from(todos).where(eq(todos.id, params.id)).get()
+      const newTodo = await db.update(todos).set({ completed: !oldTodo!.completed }).where(eq(todos.id, params.id)).returning().get()
+      return <TodoItem {...newTodo} />
     },
     {
       params: t.Object({ id: t.Numeric() }),
@@ -107,11 +97,8 @@ const app = new Elysia()
   )
   .delete(
     '/todos/:id',
-    ({ params }) => {
-      const todo = db.find((todo) => todo.id === params.id)
-      if (todo) {
-        db.splice(db.indexOf(todo), 1)
-      }
+    async ({ params }) => {
+      await db.delete(todos).where(eq(todos.id, params.id)).run()
     },
     {
       params: t.Object({ id: t.Numeric() }),
