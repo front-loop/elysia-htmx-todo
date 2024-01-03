@@ -1,7 +1,8 @@
 {
   "module": "src/index.tsx",
   "scripts": {
-    "dev": "bun run --watch src/index.tsx"
+    "dev": "bun run --watch src/index.tsx",
+    "build": "bun build src/index.tsx --outdir ./build --target bun"
   },
   "dependencies": {
     "@elysiajs/html": "^0.8.0",

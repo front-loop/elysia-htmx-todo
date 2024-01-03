@@ -2,20 +2,6 @@
 import { html } from '@elysiajs/html'
 import { Elysia } from 'elysia'
 
-const app = new Elysia()
-  .use(html())
-  .get('/', () => (
-    <Layout>
-      <div class="flex w-full h-dvh justify-center items-center font-serif">
-        <button hx-post="/clicked" hx-swap="outerHTML">
-          Click Me
-        </button>
-      </div>
-    </Layout>
-  ))
-  .post('/clicked', () => <div>Hello from the elysia server!</div>)
-  .listen(3000)
-
 const Layout = ({ children }: Html.PropsWithChildren) => {
   return (
     <>
@@ -33,5 +19,19 @@ const Layout = ({ children }: Html.PropsWithChildren) => {
     </>
   )
 }
+
+const app = new Elysia()
+  .use(html())
+  .get('/', () => (
+    <Layout>
+      <div class="flex w-full h-dvh justify-center items-center font-serif">
+        <button hx-post="/clicked" hx-swap="outerHTML">
+          Click Me
+        </button>
+      </div>
+    </Layout>
+  ))
+  .post('/clicked', () => <div>Hello from the elysia server!</div>)
+  .listen(3000)
 
 console.log(`Server is running on http://${app.server?.hostname}:${app.server?.port}`)
